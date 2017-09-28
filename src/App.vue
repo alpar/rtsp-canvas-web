@@ -137,7 +137,7 @@
             }
           }
           store.state.allVideoInfoSelect = selectList
-          store.state.allVideoInfo = data
+          store.state.allVideoInfo = data[0].node
         }
       })
     },

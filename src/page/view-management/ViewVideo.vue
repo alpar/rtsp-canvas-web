@@ -4,7 +4,9 @@
     <el-row>
       <el-col
         :xs="24"
-        :sm="7"
+        :sm="10"
+        :md="9"
+        :lg="6"
       >
         <el-tree
           :data="allVideoInfo"
@@ -14,7 +16,7 @@
           style="height: calc(100vh - 110px);overflow-y: auto;margin-bottom: 12px;"
         ></el-tree>
       </el-col>
-      <el-col :xs="24" :sm="17">
+      <el-col :xs="24" :sm="14" :md="15" :lg="18">
         <div class="sm-pl-10">
           <el-row :gutter="10">
             <el-form>
@@ -41,11 +43,12 @@
               </el-col>
             </el-form>
           </el-row>
-          <el-row>
-            <el-card>
-              <!--<video id="video" width="100%" controls="controls"></video>-->
-              <canvas class="video-canvas"></canvas>
-            </el-card>
+          <el-row :gutter="10">
+            <el-col :md="24" :lg="12" v-for="(item, i) in list">
+              <el-card class="video-card">
+                <canvas class="video-canvas"></canvas>
+              </el-card>
+            </el-col>
           </el-row>
         </div>
       </el-col>
@@ -63,7 +66,7 @@
   export default {
     name: 'departmentStore',
     // 当menu配置文件里面不存在当前页面时,面包稍会显示title
-    title: '演示页面',
+    title: '监控查看',
     components: {
       ElButton: Button,
       ElRow: Row,
@@ -96,7 +99,8 @@
           label: 'name',
           children: 'node',
           last: 'last'
-        }
+        },
+        list: []
       }
     },
     created () {
@@ -167,11 +171,23 @@
               id: item.id
             },
             success: (data, headers, request) => {
-              let c = document.getElementsByClassName('video-canvas')[0]
-              let cxt = c.getContext('2d')
+              let object = {
+                canvas: null,
+                cxt: null,
+                type: 0
+              }
+              self.list.push(object)
               let img = new Image()
+              let width = 0
+              let height = 0
               img.onload = function () {
-                cxt.drawImage(img, 0, 0, 500, 500)
+                if (object.canvas) {
+                  if (width !== object.canvas.offsetWidth) {
+                    width = object.canvas.width = object.canvas.offsetWidth
+                    height = object.canvas.height = object.canvas.offsetWidth / data.resolution.w * data.resolution.h
+                  }
+                  object.cxt.drawImage(img, 0, 0, width, height)
+                }
               }
               let socket = io(`ws://192.168.0.200:${data.port}`)
               socket.on('data', function (data) {
@@ -183,6 +199,21 @@
             }
           })
         }
+      }
+    },
+    watch: {
+      list () {
+        console.log(22)
+        this.list.forEach(item => {
+          item.canvas = null
+          item.cxt = null
+        })
+        this.$nextTick(() => {
+          this.list.forEach((item, i) => {
+            item.canvas = document.getElementsByClassName('video-canvas')[i]
+            item.cxt = item.canvas.getContext('2d')
+          })
+        })
       }
     }
   }
@@ -224,6 +255,11 @@
   canvas {
     width: 100%;
     float: left;
+  }
+
+  .video-card {
+    margin-bottom: 10px;
+    position: relative;
   }
 
 </style>
