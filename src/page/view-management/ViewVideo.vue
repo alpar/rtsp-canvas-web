@@ -39,7 +39,7 @@
                 </el-select>
               </el-col>
               <el-col :xs="24" :sm="8" class="input-box">
-                <el-button type="primary" icon="search">查看</el-button>
+                <el-button type="primary" icon="search" @click="getVideo(condition.id)">查看</el-button>
               </el-col>
             </el-form>
           </el-row>
@@ -47,6 +47,37 @@
             <el-col :md="24" :lg="12" v-for="(item, i) in list">
               <el-card class="video-card">
                 <canvas class="video-canvas"></canvas>
+                <div class="video-console-one">
+                  <div class="btn-left btn-cloud">
+                    <div class="back"></div>
+                    <div class="icon el-icon-caret-left"></div>
+                  </div>
+
+                  <div class="btn-right btn-cloud">
+                    <div class="back"></div>
+                    <div class="icon el-icon-caret-right"></div>
+                  </div>
+
+                  <div class="btn-up btn-cloud">
+                    <div class="back"></div>
+                    <div class="icon el-icon-caret-top"></div>
+                  </div>
+
+                  <div class="btn-bottom btn-cloud">
+                    <div class="back"></div>
+                    <div class="icon el-icon-caret-bottom"></div>
+                  </div>
+
+                  <div class="btn-exit btn-cloud" @click="exit(item)">
+                    <div class="back"></div>
+                    <div class="icon el-icon-close"></div>
+                  </div>
+
+                  <div class="btn-bottom btn-full">
+                    <div class="back"></div>
+                    <div class="icon">全屏</div>
+                  </div>
+                </div>
               </el-card>
             </el-col>
           </el-row>
@@ -163,41 +194,74 @@
             }
           }
           this.condition.id = item.id
-
-          request.push({
-            path: 'permission/api/getVideo',
-            type: 'get',
-            data: {
-              id: item.id
-            },
-            success: (data, headers, request) => {
-              let object = {
-                canvas: null,
-                cxt: null,
-                type: 0
-              }
-              self.list.push(object)
-              let img = new Image()
-              let width = 0
-              let height = 0
-              img.onload = function () {
-                if (object.canvas) {
-                  if (width !== object.canvas.offsetWidth) {
-                    width = object.canvas.width = object.canvas.offsetWidth
-                    height = object.canvas.height = object.canvas.offsetWidth / data.resolution.w * data.resolution.h
-                  }
-                  object.cxt.drawImage(img, 0, 0, width, height)
-                }
-              }
-              let socket = io(`ws://192.168.0.200:${data.port}`)
-              socket.on('data', function (data) {
-                img.src = 'data:image/jpeg;base64,' + data
-              })
-            },
-            error: (XMLHttpRequest, textStatus, errorThrown) => {
-              console.log(XMLHttpRequest.status)
+          this.getVideo(item.id)
+        }
+      },
+      getVideo (id) {
+        let self = this
+        request.push({
+          path: 'permission/api/getVideo',
+          type: 'get',
+          data: {
+            id: id
+          },
+          success: (data, headers, request) => {
+            let object = {
+              canvas: null,
+              cxt: null,
+              type: 0,
+              socket: null
             }
-          })
+            self.list.push(object)
+            let img = new Image()
+            let width = 0
+            let height = 0
+            let top = 0
+            let left = 0
+            img.onload = function () {
+              if (object.canvas) {
+                if (width !== object.canvas.offsetWidth) {
+                  top = 0
+                  left = 0
+                  width = object.canvas.width = parseInt(object.canvas.offsetWidth) + 1
+                  height = object.canvas.height = object.canvas.offsetWidth / data.resolution.w * data.resolution.h
+                  if (window.innerWidth >= 1200) {
+                    if (data.resolution.h / data.resolution.w < 0.565) {
+                      width = object.canvas.width = parseInt(object.canvas.offsetWidth) + 1
+                      const h = width * 0.5625 - 1
+                      object.canvas.style.height = h + 'px'
+                      object.canvas.height = h
+                      if (h > height) {
+                        top = (h - height) / 2
+                      }
+                    } else {
+                      height = object.canvas.height = parseInt(object.canvas.offsetWidth) * 0.5625 + 1
+                      width = object.canvas.height / data.resolution.h * data.resolution.w
+                      if (object.canvas.width > width) {
+                        left = (object.canvas.width - width) / 2
+                      }
+                    }
+                  }
+                }
+                object.cxt.drawImage(img, left, top, width, height)
+              }
+            }
+            object.socket = io(`ws://192.168.0.200:${data.port}`)
+            object.socket.on('data', function (data) {
+              img.src = 'data:image/jpeg;base64,' + data
+            })
+          },
+          error: (XMLHttpRequest, textStatus, errorThrown) => {
+            console.log(XMLHttpRequest.status)
+          }
+        })
+      },
+      exit (item) {
+        for (let i in this.list) {
+          if (item === this.list[i]) {
+            item.socket.close()
+            this.list.splice(i, 1)
+          }
         }
       }
     },
@@ -255,11 +319,106 @@
   canvas {
     width: 100%;
     float: left;
+    background-color: #343434;
   }
 
   .video-card {
     margin-bottom: 10px;
     position: relative;
+    overflow-x: hidden;
+  }
+
+  .video-console-one {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+  }
+
+  .video-console-one .btn-cloud {
+    width: 38px;
+    height: 38px;
+    border-radius: 100%;
+    overflow: hidden;
+    position: absolute;
+    background-color: transparent;
+  }
+
+  .video-console-one .btn-left {
+    top: calc(50% - 19px);
+    left: 10px;
+  }
+
+  .video-console-one .btn-right {
+    top: calc(50% - 19px);
+    left: calc(100% - 48px);
+  }
+
+  .video-console-one .btn-up {
+    top: 10px;
+    left: calc(50% - 19px);
+  }
+
+  .video-console-one .btn-bottom {
+    top: calc(100% - 48px);
+    left: calc(50% - 19px);
+  }
+
+  .video-console-one .back {
+    width: calc(100% - 2px);
+    height: calc(100% - 2px);
+    background-color: #3C3C3C;
+    opacity: 0.3;
+    float: left;
+    border-radius: 100%;
+    border: 1px solid #F9F9F9;
+  }
+
+  .video-console-one .icon {
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    line-height: 38px;
+    font-size: 18px;
+    color: #fff;
+    float: left;
+    margin-top: -38px;
+    position: relative;
+  }
+
+  .video-console-one .btn-bottom .icon {
+    line-height: 42px;
+  }
+
+  .video-console-one .btn-full {
+    height: 30px;
+    width: 50px;
+    border-radius: 6px;
+    top: calc(100% - 40px);
+    left: calc(100% - 60px);
+    position: absolute;
+    padding: 0px;
+  }
+
+  .video-console-one .btn-full .back {
+    border-radius: 6px;
+  }
+
+  .video-console-one .btn-full .icon {
+    font-size: 13px;
+    margin-top: -30px;
+    line-height: 30px;
+  }
+
+  .video-console-one:hover {
+    opacity: 10;
+  }
+
+  .video-console-one .btn-exit {
+    top: 10px;
+    left: calc(100% - 48px);
   }
 
 </style>
