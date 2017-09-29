@@ -31,6 +31,10 @@ export default [
       {
         name: '查看监控',
         index: 'ViewVideo'
+      },
+      {
+        name: '所有监控',
+        index: 'AllVideo'
       }
     ]
   },

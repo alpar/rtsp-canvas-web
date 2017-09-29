@@ -73,10 +73,13 @@
                     <div class="icon el-icon-close"></div>
                   </div>
 
-                  <div class="btn-bottom btn-full">
+                  <div class="btn-bottom btn-full" @click="full(item)">
                     <div class="back"></div>
                     <div class="icon">全屏</div>
                   </div>
+                </div>
+                <div class="video-loading sf-box-cen" v-show="item.loading">
+                  <i class="el-icon-loading"></i>&nbsp;{{item.item.name}}
                 </div>
               </el-card>
             </el-col>
@@ -91,6 +94,7 @@
   import {Button, Row, Col, Tree, Input, Table, TableColumn, FormItem, Form, Option, Select, Card} from 'element-ui'
   import request from './../../utils/request'
   import store from './../../store/index'
+  import $ from 'webpack-zepto'
   //  import Hls from 'hls'
   import io from 'socket.io-client'
 
@@ -140,23 +144,23 @@
         hls: null,
         video: null
       }
-      /*
-      request.push({
-        path: path,
-        type: 'get',
-        data: data,
-        success: (data, headers, request) => {
-
+      const id = this.$route.query.id
+      if (id) {
+        if (store.state.allVideoInfoSelect.length > 0) {
+          this.clickTree({id, last: true})
+        } else {
+          let number = 0
+          let interval = setInterval(() => {
+            number++
+            if (store.state.allVideoInfoSelect.length > 0) {
+              clearInterval(interval)
+              this.clickTree({id, last: true})
+            } else if (number > 120) {
+              clearInterval(interval)
+            }
+          }, 50)
         }
-      })
-      */
-      /*
-      this.o.video = document.getElementById('video')
-      this.o.hls = new Hls()
-      this.o.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        this.o.video.play()
-      })
-      */
+      }
     },
     methods: {
       // table删除当条数据按钮点击事件
@@ -187,6 +191,7 @@
             if (videoList[i].id === item.id) {
               this.o.lock = true
               this.selectVideoList = [{...videoList[i]}]
+              this.getVideo(videoList[i])
               setTimeout(() => {
                 this.o.lock = false
               }, 50)
@@ -194,11 +199,31 @@
             }
           }
           this.condition.id = item.id
-          this.getVideo(item.id)
         }
       },
-      getVideo (id) {
+      getVideo (item) {
         let self = this
+        let id = item.id
+        let object = {
+          item,
+          canvas: null,
+          cxt: null,
+          type: 0,
+          socket: null,
+          full: false,
+          card: null,
+          consoleOne: null,
+          loading: true,
+          end: false
+        }
+        if (self.list.length >= 4) {
+          try {
+            self.list[3].socket.close()
+          } catch (e) {}
+          self.list[3].end = true
+          self.list.splice(3, 1)
+        }
+        self.list.push(object)
         request.push({
           path: 'permission/api/getVideo',
           type: 'get',
@@ -206,21 +231,22 @@
             id: id
           },
           success: (data, headers, request) => {
-            let object = {
-              canvas: null,
-              cxt: null,
-              type: 0,
-              socket: null
-            }
-            self.list.push(object)
             let img = new Image()
             let width = 0
             let height = 0
             let top = 0
             let left = 0
+            object.loading = false
             img.onload = function () {
+              if (object.end) {
+                try {
+                  object.socket.close()
+                } catch (e) {}
+              }
               if (object.canvas) {
                 if (width !== object.canvas.offsetWidth) {
+                  // object.consoleOne.style.width = object.canvas.offsetWidth + 'px'
+                  // object.consoleOne.style.height = object.canvas.offsetHeight + 'px'
                   top = 0
                   left = 0
                   width = object.canvas.width = parseInt(object.canvas.offsetWidth) + 1
@@ -253,15 +279,36 @@
           },
           error: (XMLHttpRequest, textStatus, errorThrown) => {
             console.log(XMLHttpRequest.status)
+            this.exit(object)
           }
         })
       },
       exit (item) {
         for (let i in this.list) {
           if (item === this.list[i]) {
-            item.socket.close()
+            item.end = true
+            try {
+              item.socket.close()
+            } catch (e) {}
             this.list.splice(i, 1)
           }
+        }
+      },
+      full (item) {
+        item.full = !item.full
+        if (item.full) {
+          item.card.style.position = 'absolute'
+          item.card.style.top = 0
+          item.card.style.left = 0
+          item.card.style.zIndex = 999
+          item.card.style.height = '100%'
+          item.card.style.width = '100%'
+          $('.block-page').css('position', 'inherit')
+          $('.el-row').css('position', 'inherit')
+        } else {
+          item.card.style.position = 'relative'
+          $('.block-page').css('position', 'relative')
+          $('.el-row').css('position', 'relative')
         }
       }
     },
@@ -271,11 +318,15 @@
         this.list.forEach(item => {
           item.canvas = null
           item.cxt = null
+          item.card = null
         })
         this.$nextTick(() => {
           this.list.forEach((item, i) => {
+            item.card = document.getElementsByClassName('video-card')[i]
+            item.consoleOne = document.getElementsByClassName('video-console-one')[i]
             item.canvas = document.getElementsByClassName('video-canvas')[i]
             item.cxt = item.canvas.getContext('2d')
+            item.canvas.style.height = (item.canvas.clientWidth * 0.5625 - 1) + 'px'
           })
         })
       }
@@ -326,6 +377,7 @@
     margin-bottom: 10px;
     position: relative;
     overflow-x: hidden;
+    background-color: #343434;
   }
 
   .video-console-one {
@@ -419,6 +471,16 @@
   .video-console-one .btn-exit {
     top: 10px;
     left: calc(100% - 48px);
+  }
+
+  .video-loading {
+    position: absolute;
+    z-index: 10;
+    top: 0px;
+    left: 0px;
+    background-color: #fff;
+    width: 100%;
+    height: 100%;
   }
 
 </style>

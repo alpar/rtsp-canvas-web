@@ -131,6 +131,7 @@
               for (let m in data[i].node[n].node) {
                 selectList.push({
                   ...data[i].node[n].node[m],
+                  area: data[i].node[n].name,
                   showName: `${data[i].node[n].name}--${data[i].node[n].node[m].name}`
                 })
               }
@@ -449,6 +450,7 @@
     padding: 0px;
     width: 100%;
     height: 100%;
+    overflow: hidden;
   }
 
   #page-app {

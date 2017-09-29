@@ -31,6 +31,13 @@ export default new Router({
       component: (r) => {
         require(['./../page/view-management/ViewVideo'], r)
       }
+    },
+    {
+      path: '/view-management/all-video',
+      name: 'AllVideo',
+      component: (r) => {
+        require(['./../page/view-management/AllVideo'], r)
+      }
     }
   ]
 })
